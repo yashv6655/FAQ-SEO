@@ -61,4 +61,7 @@ export interface FAQGenerationResponse {
   title: string;
   meta_description: string;
   notes: string[];
+  id?: string;
+  created_at?: string;
+  warning?: string;
 }

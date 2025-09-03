@@ -1,10 +1,15 @@
+'use client'
+
 import Link from 'next/link'
 import { Button } from '@/components/ui/button'
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card'
 import { Badge } from '@/components/ui/badge'
 import { ArrowRight, Search, Zap, Code, Target, Sparkles, CheckCircle } from 'lucide-react'
+import { useAnalytics } from '@/hooks/useAnalytics'
+import { useEffect } from 'react'
 
 export default function HomePage() {
+  const analytics = useAnalytics()
   const features = [
     {
       icon: <Zap className="h-6 w-6" />,
@@ -41,6 +46,10 @@ export default function HomePage() {
     },
   ]
 
+  useEffect(() => {
+    analytics.page('Landing Page')
+  }, [analytics])
+
   return (
     <div className="flex flex-col">
       {/* Hero Section */}
@@ -60,13 +69,23 @@ export default function HomePage() {
               Perfect for developer tools, SaaS products, and technical documentation that needs better search visibility.
             </p>
             <div className="mt-10 flex items-center justify-center gap-x-6">
-              <Button size="lg" asChild className="shadow-soft-lg">
+              <Button 
+                size="lg" 
+                asChild 
+                className="shadow-soft-lg"
+                onClick={() => analytics.trackLandingCTA('start_building')}
+              >
                 <Link href="/generator">
                   Start Building FAQs
                   <ArrowRight className="ml-2 h-4 w-4" />
                 </Link>
               </Button>
-              <Button variant="outline" size="lg" asChild>
+              <Button 
+                variant="outline" 
+                size="lg" 
+                asChild
+                onClick={() => analytics.trackLandingCTA('view_example')}
+              >
                 <Link href="#example">View Example</Link>
               </Button>
             </div>
@@ -198,7 +217,13 @@ export default function HomePage() {
               Start generating SEO-optimized FAQ pages with JSON-LD schema in minutes. 
               Perfect for developer tools, SaaS products, and technical documentation.
             </p>
-            <Button size="lg" variant="secondary" asChild className="shadow-soft-lg">
+            <Button 
+              size="lg" 
+              variant="secondary" 
+              asChild 
+              className="shadow-soft-lg"
+              onClick={() => analytics.trackLandingCTA('start_building')}
+            >
               <Link href="/generator">
                 Create Your First FAQ
                 <ArrowRight className="ml-2 h-4 w-4" />

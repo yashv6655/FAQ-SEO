@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { z } from "zod";
 import Anthropic from "@anthropic-ai/sdk";
+import { createClient } from '@/lib/supabase/server';
 
 const BodySchema = z.object({
   topic: z.string().min(3),
@@ -39,6 +40,17 @@ ${OUTPUT_SCHEMA}
 
 export async function POST(req: NextRequest) {
   try {
+    // Check authentication
+    const supabase = await createClient()
+    const { data: { user }, error: authError } = await supabase.auth.getUser()
+    
+    if (authError || !user) {
+      return NextResponse.json(
+        { error: "Authentication required" },
+        { status: 401 }
+      )
+    }
+
     const body = await req.json();
     const { topic, product, audience, num_questions, tone, language } =
       BodySchema.parse(body);
@@ -105,7 +117,51 @@ export async function POST(req: NextRequest) {
 
     const safe = OutputSchema.parse(parsed);
 
-    return NextResponse.json(safe, { status: 200 });
+    // Save to database
+    try {
+      const { data: savedGeneration, error: dbError } = await supabase
+        .from('faq_generations')
+        .insert({
+          user_id: user.id,
+          project_id: null, // For now, standalone generations without a project
+          topic,
+          product,
+          audience,
+          tone,
+          num_questions,
+          faqs: safe.faqs,
+          jsonld: safe.jsonld,
+          title: safe.title,
+          meta_description: safe.meta_description,
+          notes: safe.notes || []
+        })
+        .select()
+        .single()
+
+      if (dbError) {
+        console.error('Database save error:', dbError)
+        // Still return the generated FAQs even if save fails
+        return NextResponse.json({
+          ...safe,
+          warning: 'FAQs generated successfully but not saved to history'
+        }, { status: 200 })
+      }
+
+      // Return the saved generation with database ID
+      return NextResponse.json({
+        ...safe,
+        id: savedGeneration.id,
+        created_at: savedGeneration.created_at
+      }, { status: 200 })
+      
+    } catch (saveError) {
+      console.error('FAQ save error:', saveError)
+      // Still return the generated FAQs even if save fails
+      return NextResponse.json({
+        ...safe,
+        warning: 'FAQs generated successfully but not saved to history'
+      }, { status: 200 })
+    }
   } catch (err: unknown) {
     console.error("FAQ Builder API Error:", err);
     // Basic error surfacing

@@ -7,6 +7,7 @@ import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card'
 import { createClient } from '@/lib/supabase/client'
+import { useAnalytics } from '@/hooks/useAnalytics'
 import { Github, Mail, Loader2, AlertCircle, CheckCircle } from 'lucide-react'
 
 export function RegisterForm() {
@@ -16,7 +17,8 @@ export function RegisterForm() {
   const [loading, setLoading] = useState(false)
   const [error, setError] = useState('')
   const [success, setSuccess] = useState(false)
-  const router = useRouter()
+  // const router = useRouter() // Currently unused
+  const analytics = useAnalytics()
 
   const supabase = createClient()
 
@@ -28,6 +30,7 @@ export function RegisterForm() {
 
     // Validate passwords match
     if (password !== confirmPassword) {
+      analytics.trackAuthError('register', 'Passwords do not match')
       setError('Passwords do not match')
       setLoading(false)
       return
@@ -35,10 +38,13 @@ export function RegisterForm() {
 
     // Validate password length
     if (password.length < 6) {
+      analytics.trackAuthError('register', 'Password too short')
       setError('Password must be at least 6 characters long')
       setLoading(false)
       return
     }
+
+    analytics.trackAuthAttempt('register', 'email')
 
     try {
       const { error } = await supabase.auth.signUp({
@@ -50,12 +56,14 @@ export function RegisterForm() {
       })
 
       if (error) {
+        analytics.trackAuthError('register', error.message)
         setError(error.message)
         return
       }
 
+      analytics.trackAuthSuccess('register', 'email')
       setSuccess(true)
-    } catch (err) {
+    } catch {
       setError('An unexpected error occurred')
     } finally {
       setLoading(false)
@@ -65,6 +73,8 @@ export function RegisterForm() {
   const handleGitHubRegister = async () => {
     setLoading(true)
     setError('')
+    
+    analytics.trackAuthAttempt('register', 'github')
 
     try {
       const { error } = await supabase.auth.signInWithOAuth({
@@ -75,10 +85,13 @@ export function RegisterForm() {
       })
 
       if (error) {
+        analytics.trackAuthError('register', error.message)
         setError(error.message)
         setLoading(false)
+      } else {
+        analytics.trackAuthSuccess('register', 'github')
       }
-    } catch (err) {
+    } catch {
       setError('An unexpected error occurred')
       setLoading(false)
     }

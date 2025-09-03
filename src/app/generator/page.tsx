@@ -1,16 +1,21 @@
 'use client'
 
-import { useState } from 'react'
+import { useState, useEffect } from 'react'
+import { useSearchParams } from 'next/navigation'
 import { Button } from '@/components/ui/button'
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card'
 import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select'
 import { Badge } from '@/components/ui/badge'
-import { Loader2, Sparkles, Download, Copy, Code, Eye } from 'lucide-react'
-import { FAQGenerationRequest, FAQGenerationResponse } from '@/lib/types'
+import { Loader2, Sparkles, Download, Copy, Code, Eye, CheckCircle } from 'lucide-react'
+import { FAQGenerationRequest, FAQGenerationResponse, FAQGeneration } from '@/lib/types'
+import { useAnalytics } from '@/hooks/useAnalytics'
 
 export default function GeneratorPage() {
+  const searchParams = useSearchParams()
+  const importId = searchParams.get('import')
+  
   const [formData, setFormData] = useState<FAQGenerationRequest>({
     topic: '',
     product: '',
@@ -23,23 +28,86 @@ export default function GeneratorPage() {
   const [isLoading, setIsLoading] = useState(false)
   const [error, setError] = useState<string | null>(null)
   const [activeTab, setActiveTab] = useState<'preview' | 'jsonld' | 'export'>('preview')
+  const [isImportLoading, setIsImportLoading] = useState(false)
+  const [isImported, setIsImported] = useState(false)
+  const analytics = useAnalytics()
+
+  // Handle import functionality
+  useEffect(() => {
+    const importFAQGeneration = async () => {
+      if (!importId || isImported) return
+      
+      setIsImportLoading(true)
+      setError(null)
+      
+      try {
+        const response = await fetch(`/api/faq-generation/${importId}`)
+        
+        if (!response.ok) {
+          throw new Error(`Failed to fetch FAQ generation: ${response.status}`)
+        }
+        
+        const importedGeneration: FAQGeneration = await response.json()
+        
+        // Pre-populate form fields
+        setFormData({
+          topic: importedGeneration.topic,
+          product: importedGeneration.product,
+          audience: importedGeneration.audience || 'Developers',
+          num_questions: importedGeneration.num_questions || 8,
+          tone: importedGeneration.tone || 'clear and helpful',
+          language: 'en'
+        })
+        
+        // Set the result to show existing FAQs immediately
+        setResult({
+          faqs: importedGeneration.faqs,
+          jsonld: importedGeneration.jsonld,
+          title: importedGeneration.title || '',
+          meta_description: importedGeneration.meta_description || '',
+          notes: importedGeneration.notes || [],
+          id: importedGeneration.id,
+          created_at: importedGeneration.created_at
+        })
+        
+        setIsImported(true)
+        
+        // Track import event
+        analytics.track('faq_imported', {
+          import_id: importId,
+          topic: importedGeneration.topic,
+          product: importedGeneration.product,
+          num_questions: importedGeneration.faqs.length
+        })
+        
+      } catch (err) {
+        const errorMessage = err instanceof Error ? err.message : 'Failed to import FAQ generation'
+        setError(errorMessage)
+        console.error('Import error:', err)
+      } finally {
+        setIsImportLoading(false)
+      }
+    }
+    
+    importFAQGeneration()
+  }, [importId])
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault()
     setIsLoading(true)
     setError(null)
     setResult(null)
+    setIsImported(false) // Clear imported state when regenerating
+    
+    const startTime = Date.now()
 
-    // Track FAQ generation start
-    if (typeof window !== 'undefined' && (window as any).posthog) {
-      (window as any).posthog.capture('faq_generation_started', {
-        topic: formData.topic,
-        product: formData.product,
-        audience: formData.audience,
-        num_questions: formData.num_questions,
-        tone: formData.tone
-      })
-    }
+    analytics.track('faq_generation_started', {
+      topic: formData.topic,
+      product: formData.product,
+      audience: formData.audience,
+      num_questions: formData.num_questions,
+      tone: formData.tone
+    })
 
     try {
       const response = await fetch('/api/faqbuilder', {
@@ -57,29 +125,25 @@ export default function GeneratorPage() {
       const data: FAQGenerationResponse = await response.json()
       setResult(data)
 
-      // Track successful generation
-      if (typeof window !== 'undefined' && (window as any).posthog) {
-        (window as any).posthog.capture('faq_generation_completed', {
-          topic: formData.topic,
-          product: formData.product,
-          audience: formData.audience,
-          num_questions: formData.num_questions,
-          faqs_generated: data.faqs.length,
-          has_jsonld: !!data.jsonld
-        })
-      }
+      analytics.track('faq_generation_completed', {
+        topic: formData.topic,
+        product: formData.product,
+        audience: formData.audience,
+        num_questions: formData.num_questions,
+        faqs_generated: data.faqs.length,
+        has_jsonld: !!data.jsonld,
+        response_time_ms: Date.now() - startTime
+      })
     } catch (err) {
       const errorMessage = err instanceof Error ? err.message : 'An error occurred'
       setError(errorMessage)
 
-      // Track generation error
-      if (typeof window !== 'undefined' && (window as any).posthog) {
-        (window as any).posthog.capture('faq_generation_error', {
-          error: errorMessage,
-          topic: formData.topic,
-          product: formData.product
-        })
-      }
+      analytics.track('faq_generation_error', {
+        error: errorMessage,
+        topic: formData.topic,
+        product: formData.product,
+        response_time_ms: Date.now() - startTime
+      })
     } finally {
       setIsLoading(false)
     }
@@ -109,6 +173,30 @@ export default function GeneratorPage() {
         <div className="grid grid-cols-1 lg:grid-cols-2 gap-8">
           {/* Form */}
           <div className="space-y-6">
+            {/* Import Loading State */}
+            {isImportLoading && (
+              <Card className="border-blue-200 bg-blue-50">
+                <CardContent className="pt-6">
+                  <div className="flex items-center space-x-3">
+                    <Loader2 className="h-5 w-5 animate-spin text-blue-600" />
+                    <p className="text-blue-700 font-medium">Loading FAQ generation...</p>
+                  </div>
+                </CardContent>
+              </Card>
+            )}
+            
+            {/* Import Success Notification */}
+            {isImported && !isImportLoading && (
+              <Card className="border-green-200 bg-green-50">
+                <CardContent className="pt-6">
+                  <div className="flex items-center space-x-3">
+                    <CheckCircle className="h-5 w-5 text-green-600" />
+                    <p className="text-green-700 font-medium">FAQ generation imported successfully! You can modify the settings below and regenerate if needed.</p>
+                  </div>
+                </CardContent>
+              </Card>
+            )}
+            
             <Card>
               <CardHeader>
                 <CardTitle>FAQ Configuration</CardTitle>
@@ -123,7 +211,10 @@ export default function GeneratorPage() {
                     <Input
                       id="topic"
                       value={formData.topic}
-                      onChange={(e) => setFormData({ ...formData, topic: e.target.value })}
+                      onChange={(e) => {
+                        setFormData({ ...formData, topic: e.target.value })
+                        if (e.target.value) analytics.trackFAQFormField('topic', e.target.value)
+                      }}
                       placeholder="e.g., Edge functions for ecommerce checkouts"
                       required
                     />
@@ -134,7 +225,10 @@ export default function GeneratorPage() {
                     <Input
                       id="product"
                       value={formData.product}
-                      onChange={(e) => setFormData({ ...formData, product: e.target.value })}
+                      onChange={(e) => {
+                        setFormData({ ...formData, product: e.target.value })
+                        if (e.target.value) analytics.trackFAQFormField('product', e.target.value)
+                      }}
                       placeholder="e.g., Acme Edge, MyAPI, DevTools Pro"
                       required
                     />
@@ -144,7 +238,10 @@ export default function GeneratorPage() {
                     <Label htmlFor="audience">Target Audience</Label>
                     <Select 
                       value={formData.audience} 
-                      onValueChange={(value) => setFormData({ ...formData, audience: value })}
+                      onValueChange={(value) => {
+                        setFormData({ ...formData, audience: value })
+                        analytics.trackFAQFormField('audience', value)
+                      }}
                     >
                       <SelectTrigger>
                         <SelectValue />
@@ -165,7 +262,10 @@ export default function GeneratorPage() {
                       <Label htmlFor="num_questions">Number of Questions</Label>
                       <Select 
                         value={formData.num_questions.toString()} 
-                        onValueChange={(value) => setFormData({ ...formData, num_questions: parseInt(value) })}
+                        onValueChange={(value) => {
+                          setFormData({ ...formData, num_questions: parseInt(value) })
+                          analytics.trackFAQFormField('num_questions', value)
+                        }}
                       >
                         <SelectTrigger>
                           <SelectValue />
@@ -184,7 +284,10 @@ export default function GeneratorPage() {
                       <Label htmlFor="tone">Tone</Label>
                       <Select 
                         value={formData.tone} 
-                        onValueChange={(value) => setFormData({ ...formData, tone: value })}
+                        onValueChange={(value) => {
+                          setFormData({ ...formData, tone: value })
+                          analytics.trackFAQFormField('tone', value)
+                        }}
                       >
                         <SelectTrigger>
                           <SelectValue />
@@ -238,7 +341,10 @@ export default function GeneratorPage() {
                   <Button
                     variant={activeTab === 'preview' ? 'default' : 'ghost'}
                     size="sm"
-                    onClick={() => setActiveTab('preview')}
+                    onClick={() => {
+                      setActiveTab('preview')
+                      analytics.trackFAQTabSwitch('preview')
+                    }}
                     className="flex-1"
                   >
                     <Eye className="h-4 w-4 mr-2" />
@@ -247,7 +353,10 @@ export default function GeneratorPage() {
                   <Button
                     variant={activeTab === 'jsonld' ? 'default' : 'ghost'}
                     size="sm"
-                    onClick={() => setActiveTab('jsonld')}
+                    onClick={() => {
+                      setActiveTab('jsonld')
+                      analytics.trackFAQTabSwitch('jsonld')
+                    }}
                     className="flex-1"
                   >
                     <Code className="h-4 w-4 mr-2" />
@@ -256,7 +365,10 @@ export default function GeneratorPage() {
                   <Button
                     variant={activeTab === 'export' ? 'default' : 'ghost'}
                     size="sm"
-                    onClick={() => setActiveTab('export')}
+                    onClick={() => {
+                      setActiveTab('export')
+                      analytics.trackFAQTabSwitch('export')
+                    }}
                     className="flex-1"
                   >
                     <Download className="h-4 w-4 mr-2" />
@@ -313,7 +425,10 @@ export default function GeneratorPage() {
                         <Button
                           size="sm"
                           variant="outline"
-                          onClick={() => copyToClipboard(result.jsonld)}
+                          onClick={() => {
+                            copyToClipboard(result.jsonld)
+                            analytics.trackFAQCopy('jsonld')
+                          }}
                         >
                           <Copy className="h-4 w-4 mr-2" />
                           Copy
@@ -354,6 +469,7 @@ export default function GeneratorPage() {
                           document.body.appendChild(downloadAnchorNode);
                           downloadAnchorNode.click();
                           downloadAnchorNode.remove();
+                          analytics.trackFAQExport('json')
                         }}
                       >
                         <Download className="h-4 w-4 mr-2" />
@@ -363,7 +479,10 @@ export default function GeneratorPage() {
                       <Button
                         variant="outline"
                         className="w-full justify-start"
-                        onClick={() => copyToClipboard(result.faqs.map(faq => `**${faq.question}**\n\n${faq.answer}`).join('\n\n---\n\n'))}
+                        onClick={() => {
+                          copyToClipboard(result.faqs.map(faq => `**${faq.question}**\n\n${faq.answer}`).join('\n\n---\n\n'))
+                          analytics.trackFAQCopy('markdown')
+                        }}
                       >
                         <Copy className="h-4 w-4 mr-2" />
                         Copy as Markdown
@@ -372,7 +491,10 @@ export default function GeneratorPage() {
                       <Button
                         variant="outline"
                         className="w-full justify-start"
-                        onClick={() => copyToClipboard(`<script type="application/ld+json">\n${result.jsonld}\n</script>`)}
+                        onClick={() => {
+                          copyToClipboard(`<script type="application/ld+json">\n${result.jsonld}\n</script>`)
+                          analytics.trackFAQCopy('jsonld')
+                        }}
                       >
                         <Code className="h-4 w-4 mr-2" />
                         Copy JSON-LD Script Tag

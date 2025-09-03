@@ -6,6 +6,7 @@ import { Button } from '@/components/ui/button'
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card'
 import { Badge } from '@/components/ui/badge'
 import { useSSRSafeAuth } from '@/hooks/useSSRSafeAuth'
+import { useAnalytics } from '@/hooks/useAnalytics'
 import { createClient } from '@/lib/supabase/client'
 import { Plus, FileText, Calendar, ExternalLink, Loader2 } from 'lucide-react'
 import type { FAQGeneration } from '@/lib/types'
@@ -14,12 +15,15 @@ export default function DashboardPage() {
   const { user, loading: authLoading } = useSSRSafeAuth()
   const [generations, setGenerations] = useState<FAQGeneration[]>([])
   const [loading, setLoading] = useState(true)
+  const analytics = useAnalytics()
 
   useEffect(() => {
     if (user) {
+      analytics.page('Dashboard')
+      analytics.trackDashboardAction('viewed_history')
       fetchGenerations()
     }
-  }, [user])
+  }, [user?.id])
 
   const fetchGenerations = async () => {
     try {

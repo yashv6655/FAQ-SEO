@@ -7,6 +7,7 @@ import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card'
 import { createClient } from '@/lib/supabase/client'
+import { useAnalytics } from '@/hooks/useAnalytics'
 import { Github, Mail, Loader2, AlertCircle } from 'lucide-react'
 
 export function LoginForm() {
@@ -17,6 +18,7 @@ export function LoginForm() {
   const router = useRouter()
   const searchParams = useSearchParams()
   const redirectedFrom = searchParams.get('redirectedFrom')
+  const analytics = useAnalytics()
 
   const supabase = createClient()
 
@@ -24,6 +26,8 @@ export function LoginForm() {
     e.preventDefault()
     setLoading(true)
     setError('')
+    
+    analytics.trackAuthAttempt('login', 'email')
 
     try {
       const { error } = await supabase.auth.signInWithPassword({
@@ -32,14 +36,16 @@ export function LoginForm() {
       })
 
       if (error) {
+        analytics.trackAuthError('login', error.message)
         setError(error.message)
         return
       }
 
+      analytics.trackAuthSuccess('login', 'email')
       // Redirect to intended destination or dashboard
       router.push(redirectedFrom || '/dashboard')
       router.refresh()
-    } catch (err) {
+    } catch {
       setError('An unexpected error occurred')
     } finally {
       setLoading(false)
@@ -49,6 +55,8 @@ export function LoginForm() {
   const handleGitHubLogin = async () => {
     setLoading(true)
     setError('')
+    
+    analytics.trackAuthAttempt('login', 'github')
 
     try {
       const { error } = await supabase.auth.signInWithOAuth({
@@ -59,10 +67,13 @@ export function LoginForm() {
       })
 
       if (error) {
+        analytics.trackAuthError('login', error.message)
         setError(error.message)
         setLoading(false)
+      } else {
+        analytics.trackAuthSuccess('login', 'github')
       }
-    } catch (err) {
+    } catch {
       setError('An unexpected error occurred')
       setLoading(false)
     }
