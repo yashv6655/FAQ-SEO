@@ -47,10 +47,10 @@ export function Footer() {
         
         <div className="border-t mt-8 pt-8 flex flex-col sm:flex-row justify-between items-center">
           <p className="text-sm text-muted-foreground">
-            © 2024 FAQBuilder. All rights reserved.
+            © 2025 FAQBuilder. All rights reserved.
           </p>
           <p className="text-sm text-muted-foreground">
-            Built for Sita Interview Challenge
+            Built for Fun
           </p>
         </div>
       </div>
