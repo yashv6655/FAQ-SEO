@@ -106,11 +106,11 @@ export async function POST(req: NextRequest) {
     const safe = OutputSchema.parse(parsed);
 
     return NextResponse.json(safe, { status: 200 });
-  } catch (err: any) {
+  } catch (err: unknown) {
     console.error("FAQ Builder API Error:", err);
     // Basic error surfacing
     return NextResponse.json(
-      { error: err.message ?? "Unexpected error" },
+      { error: err instanceof Error ? err.message : "Unexpected error" },
       { status: 400 }
     );
   }

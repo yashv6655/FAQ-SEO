@@ -15,8 +15,7 @@ export const config = {
      * - auth routes (login, register, callback)
      * - api routes that don't require auth
      * - root page (landing page should be accessible)
-     * Feel free to modify this pattern to include more paths.
      */
-    '/((?!_next/static|_next/image|favicon.ico|auth|api/faqbuilder|generator|^/$).*)',
+    '/((?!_next/static|_next/image|favicon.ico|auth|api).*)',
   ],
 }
