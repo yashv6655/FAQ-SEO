@@ -53,10 +53,35 @@ FAQBuilder is a full-stack web application that generates SEO-optimized FAQ cont
 - **UX**: Intuitive form flows with real-time validation and feedback
 
 ### Analytics Enabled
-- **Platform**: PostHog for comprehensive event tracking
-- **Coverage**: User journey tracking across all key interactions
-- **Metrics**: Form completion rates, generation success/failure, export usage
-- **Performance**: Rate-limited analytics to prevent quota exhaustion
+
+**Platform**: PostHog for comprehensive behavioral analytics and product optimization
+
+**Detailed Event Tracking**:
+
+*Landing Page Analytics*:
+- `landing_cta_clicked` - Tracks CTA interactions (start_building, view_example)
+- `feature_viewed` - Monitors which features generate the most interest
+- `example_interaction` - Tracks FAQ example engagement (viewed, expanded)
+
+*Authentication Flow*:
+- `auth_attempt` - Login/register attempts with method tracking
+- `auth_success` - Successful authentication events
+- `auth_error` - Authentication failures with error context
+
+*FAQ Generation Funnel*:
+- `faq_form_field_completed` - Field-by-field completion tracking
+- `faq_tab_switched` - User interaction with results tabs (preview, jsonld, export)
+- `faq_exported` - Export type preferences (json, markdown, jsonld_script)
+- `faq_copied` - Copy-to-clipboard usage (markdown, jsonld)
+
+*User Engagement*:
+- `dashboard_action` - Dashboard usage patterns (viewed_history, deleted_faq, regenerated)
+- `performance_metric` - API response times and generation latency
+- `$pageview` - Page navigation tracking with custom page names
+
+**Rate Limiting**: 1-second rate limiting per event type to prevent quota exhaustion while maintaining data quality
+
+**Privacy**: User identification without PII content - tracks behavioral patterns, not sensitive data
 
 ## Technology Choices & Reasoning
 
