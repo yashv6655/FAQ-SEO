@@ -79,10 +79,6 @@ FAQBuilder is a full-stack web application that generates SEO-optimized FAQ cont
 - `performance_metric` - API response times and generation latency
 - `$pageview` - Page navigation tracking with custom page names
 
-**Rate Limiting**: 1-second rate limiting per event type to prevent quota exhaustion while maintaining data quality
-
-**Privacy**: User identification without PII content - tracks behavioral patterns, not sensitive data
-
 ## Technology Choices & Reasoning
 
 ### Frontend Stack
@@ -129,15 +125,3 @@ FAQBuilder is a full-stack web application that generates SEO-optimized FAQ cont
 - **Developer Experience**: Intuitive interface designed for technical users
 - **Scalability**: Handles high-volume FAQ generation for growing companies
 - **Data Insights**: Analytics provide actionable insights for content strategy optimization
-
-## Getting Started
-
-```bash
-npm run dev
-```
-
-Open [http://localhost:3000](http://localhost:3000) to view the application.
-
----
-
-Built with modern web technologies to deliver a scalable, secure, and user-friendly solution for technical content creation.
